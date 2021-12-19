@@ -21,12 +21,13 @@
 
 #include "TinyGPS++.h"
 #include "Adafruit_BME280.h"
+#include "JsonParserGeneratorRK.h"
 
 void setup();
 void loop();
 void getGPS();
 void createEventPayload(int temp_c, int temp_f, int humidity, int voltage, int percent_charge, int signal_strength , int signal_quality, double longitude, double latitude, double altitude);
-#line 19 "/Users/mikesoniat/Documents/Particle/Boron_GPS_Tracker/src/Boron_GPS_Tracker.ino"
+#line 20 "/Users/mikesoniat/Documents/Particle/Boron_GPS_Tracker/src/Boron_GPS_Tracker.ino"
 SerialLogHandler logHandler;
 
 TinyGPSPlus gps;
@@ -97,7 +98,7 @@ void loop() {
         percent_charge = (uint8_t)System.batteryCharge();
 
         CellularSignal sig = Cellular.RSSI();
-        signal_strength  = (uint8_t)sig.getStrength ();
+        signal_strength  = (uint8_t)sig.getStrength();
         signal_quality = (uint8_t)sig.getQuality();
 
         // get GPS coordinates
@@ -127,7 +128,7 @@ void getGPS() {
 
             if (gps.sentencesWithFix() > 0) {
                 latitude = gps.location.lat();
-                longitude = gps.location.lat();
+                longitude = gps.location.lng();
                 altitude = gps.altitude.feet();
             }
 
@@ -138,22 +139,25 @@ void getGPS() {
 
 void createEventPayload(int temp_c, int temp_f, int humidity, int voltage, int percent_charge, int signal_strength , int signal_quality, double longitude, double latitude, double altitude)
 {
-//   JsonWriterStatic<256> jw;
+  JsonWriterStatic<256> jw;
 
-//   {
-//     JsonWriterAutoObject obj(&jw);
+  {
+    JsonWriterAutoObject obj(&jw);
 
-//     jw.insertKeyValue("temp_c", temp_c);
-//     jw.insertKeyValue("temp_f", temp_f);
-//     jw.insertKeyValue("humidity", humidity);
-//     jw.insertKeyValue("voltage", voltage);
-//     jw.insertKeyValue("percent_charge", percent_charge);
-//     jw.insertKeyValue("signal_strength", signal_strength );
-//     jw.insertKeyValue("signal_quality", signal_quality);
+    jw.insertKeyValue("temp_c", temp_c);
+    jw.insertKeyValue("temp_f", temp_f);
+    jw.insertKeyValue("humidity", humidity);
+    jw.insertKeyValue("voltage", voltage);
+    jw.insertKeyValue("percent_charge", percent_charge);
+    jw.insertKeyValue("signal_strength", signal_strength );
+    jw.insertKeyValue("signal_quality", signal_quality);
+    jw.insertKeyValue("longitude", longitude);
+    jw.insertKeyValue("latitude", latitude);
+    jw.insertKeyValue("altitude", altitude);
 
-//   }
+  }
 
-//   Particle.publish("equipment_readings", jw.getBuffer(), PRIVATE);
+  Particle.publish("equipment_readings", jw.getBuffer(), PRIVATE);
 
 }
 
