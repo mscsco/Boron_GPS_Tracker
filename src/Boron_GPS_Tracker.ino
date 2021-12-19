@@ -3,50 +3,39 @@
  * Description: Boron module with Grove GPS (Air530)
  * Author: Mike Soniat
  * Date: 12/17/2021
- */
+ * Libraries: https://github.com/mikalhart/TinyGPSPlus
+ */ 
+
+#include "TinyGPS++.h"
 
 SerialLogHandler logHandler;
 
-unsigned char buffer[64];  // buffer array for data receive over serial port
-int count=0;    
-const pin_t MY_LED = D7;
+TinyGPSPlus gps;
 
 void setup() {
   Serial.begin(9600);
   Serial1.begin(9600);
-  pinMode(MY_LED, OUTPUT);
 }
 
 void loop() {
 
-
-    if (Serial1.available())                     // if data is coming from serial1 port ==> data is coming from GPS module
+    while(Serial1.available())
     {
-        while(Serial1.available())               // reading data into char array
+        if(gps.encode(Serial1.read()))
         {
-            digitalWrite(MY_LED, HIGH);
-            buffer[count++]=Serial1.read();      // writing data into array
-            if(count == 64)break;
+            String msg = Serial1.readStringUntil('\r');
+            Serial.println(msg);
+
+            if (gps.sentencesWithFix() > 0) {
+                Serial.print("HAS FIX="); Serial.println(gps.sentencesWithFix());
+                Serial.print("LAT="); Serial.println(gps.location.lat());
+                Serial.print("LONG="); Serial.println(gps.location.lng(), 6);
+                Serial.print("ALT="); Serial.println(gps.altitude.meters(), 6);
+                delay(4*1000);
+
+            }
+
         }
-        digitalWrite(MY_LED, LOW);
-        
-        //convert buffer to string 
-        String myString = (char*)buffer;
-        Serial.print(myString);
-        
-        //Serial.write(buffer,count);                 // if no data transmission ends, write buffer to hardware serial port
-        clearBufferArray();                         // call clearBufferArray function to clear the stored data from the array
-        count = 0;                                  // set counter of while loop to zero 
-    }
-    if (Serial.available())                 // if data is available on hardware serial port ==> data is coming from PC or notebook
-    Serial1.write(Serial.read());        // write it to the GPS module
-
+    }  
 }
 
-void clearBufferArray()                     // function to clear buffer array
-{
-    for (int i=0; i<count;i++)
-    {
-        buffer[i]=NULL;
-    }                      // clear all index of array with command NULL
-}
