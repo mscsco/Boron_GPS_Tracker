@@ -11,8 +11,8 @@
  * Company: MSCS Technology, LLC
  * Date: 12/19/2021
  * Components:  Particle Boron LTE CAT-M1 Cellular w/ EtherSIM
- *              Grove GPS (Air530) module for location tracking
- *              Grove BME280 Temperature/humidity sensors for monitoring environmental conditions
+ *              Grove GPS (Air530) module for location tracking (UART)
+ *              Grove BME280 Temperature/humidity sensors for monitoring environmental conditions (I2C_2)
  *              Grove SW-420 Vibration sensor to determine when the equipment is running vs idle
  * 
  * Libraries:   AdafruitBME280; for Grove temp/humidity sensor
@@ -25,7 +25,7 @@
 void setup();
 void loop();
 void getGPS();
-void createEventPayload(int temp_c, int temp_f, int humidity, int voltage, int percent_charge, int signal_strength , int signal_quality);
+void createEventPayload(int temp_c, int temp_f, int humidity, int voltage, int percent_charge, int signal_strength , int signal_quality, double longitude, double latitude, double altitude);
 #line 19 "/Users/mikesoniat/Documents/Particle/Boron_GPS_Tracker/src/Boron_GPS_Tracker.ino"
 SerialLogHandler logHandler;
 
@@ -53,6 +53,8 @@ double altitude = 0.0;
 int last_temp_c = 1;
 int last_humidity = 1;
 int last_voltage = 1;
+int last_longitude = 1;
+int last_latitude = 1;
 
 //loop vars
 bool first_loop = true;
@@ -75,9 +77,9 @@ void setup() {
     Particle.variable("signal_strength", signal_strength);
     Particle.variable("signal_quality", signal_quality);
     Particle.variable("percent_charge", percent_charge);    
-    Particle.variable("longitude", longitude);
-    Particle.variable("latitude", latitude);
-    Particle.variable("altitude", altitude);
+    Particle.variable("longitude", &longitude, DOUBLE);
+    Particle.variable("latitude", &latitude, DOUBLE);
+    Particle.variable("altitude", &altitude, DOUBLE);
 
 }
 
@@ -105,11 +107,13 @@ void loop() {
         delay(5000);
     }
     
-    if((last_temp_c != temp_c) | (last_humidity != humidity))
+    if((last_temp_c != temp_c) | (last_humidity != humidity) | (last_latitude != latitude) | (last_longitude != longitude))
     {
-        createEventPayload(temp_c, temp_f, humidity, voltage, percent_charge, signal_strength , signal_quality);
+        createEventPayload(temp_c, temp_f, humidity, voltage, percent_charge, signal_strength , signal_quality, longitude, latitude, altitude);
         last_temp_c = temp_c;
         last_humidity = humidity;
+        last_latitude = latitude;
+        last_longitude = longitude;
     }
 }
 
@@ -132,7 +136,7 @@ void getGPS() {
 
 }
 
-void createEventPayload(int temp_c, int temp_f, int humidity, int voltage, int percent_charge, int signal_strength , int signal_quality)
+void createEventPayload(int temp_c, int temp_f, int humidity, int voltage, int percent_charge, int signal_strength , int signal_quality, double longitude, double latitude, double altitude)
 {
 //   JsonWriterStatic<256> jw;
 
