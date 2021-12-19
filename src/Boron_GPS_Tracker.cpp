@@ -6,19 +6,27 @@
 #line 1 "/Users/mikesoniat/Documents/Particle/Boron_GPS_Tracker/src/Boron_GPS_Tracker.ino"
 /*
  * Project: Boron_GPS_Tracker
- * Description: Boron module with Grove GPS (Air530)
+ * Description: A prototype for tracking the location and operation of heavy equipment.
  * Author: Mike Soniat
- * Date: 12/17/2021
- * Libraries: https://github.com/mikalhart/TinyGPSPlus
- */ 
+ * Company: MSCS Technology, LLC
+ * Date: 12/19/2021
+ * Components:  Particle Boron LTE CAT-M1 Cellular w/ EtherSIM
+ *              Grove GPS (Air530) module for location tracking
+ *              Grove BME280 Temperature/humidity sensors for monitoring environmental conditions
+ *              Grove SW-420 Vibration sensor to determine when the equipment is running vs idle
+ * 
+ * Libraries:   AdafruitBME280; for Grove temp/humidity sensor
+ *              TinyGPS++; Port of TinyGPS for the Particle AssetTracker; https://github.com/mikalhart/TinyGPSPlus
+ */
 
 #include "TinyGPS++.h"
+#include "Adafruit_BME280.h"
 
 void setup();
 void loop();
 void getGPS();
 void outputGPS();
-#line 11 "/Users/mikesoniat/Documents/Particle/Boron_GPS_Tracker/src/Boron_GPS_Tracker.ino"
+#line 19 "/Users/mikesoniat/Documents/Particle/Boron_GPS_Tracker/src/Boron_GPS_Tracker.ino"
 SerialLogHandler logHandler;
 
 TinyGPSPlus gps;
