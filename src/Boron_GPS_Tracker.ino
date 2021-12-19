@@ -53,7 +53,7 @@ unsigned long lastCheck = 0;
 
 // product/version
 PRODUCT_ID(16112)
-PRODUCT_VERSION(1)
+PRODUCT_VERSION(2)
 
 void setup() {
     //setup serial port
@@ -99,16 +99,17 @@ void loop() {
 
         first_loop = false;
         delay(5000);
+
+        if((last_temp_c != temp_c) | (last_humidity != humidity) | (last_latitude != (int)latitude) | (last_longitude != (int)longitude))
+        {
+            createEventPayload(temp_c, temp_f, humidity, voltage, percent_charge, signal_strength , signal_quality, longitude, latitude, altitude);
+            last_temp_c = temp_c;
+            last_humidity = humidity;
+            last_latitude = latitude;
+            last_longitude = longitude;
+        }
     }
     
-    if((last_temp_c != temp_c) | (last_humidity != humidity) | (last_latitude != (int)latitude) | (last_longitude != (int)longitude))
-    {
-        createEventPayload(temp_c, temp_f, humidity, voltage, percent_charge, signal_strength , signal_quality, longitude, latitude, altitude);
-        last_temp_c = temp_c;
-        last_humidity = humidity;
-        last_latitude = latitude;
-        last_longitude = longitude;
-    }
 }
 
 void getGPS() {
