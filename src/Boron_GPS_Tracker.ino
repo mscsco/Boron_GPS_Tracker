@@ -13,8 +13,11 @@ SerialLogHandler logHandler;
 TinyGPSPlus gps;
 
 void setup() {
+  //setup serial port
   Serial.begin(9600);
+  //setup GPS port
   Serial1.begin(9600);
+
 }
 
 void loop() {
