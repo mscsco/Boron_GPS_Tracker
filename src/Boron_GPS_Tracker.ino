@@ -51,6 +51,10 @@ bool first_loop = true;
 unsigned long delay_millis = 300000;
 unsigned long lastCheck = 0;
 
+// product/version
+PRODUCT_ID(16112)
+PRODUCT_VERSION(1)
+
 void setup() {
     //setup serial port
     Serial.begin(9600);
