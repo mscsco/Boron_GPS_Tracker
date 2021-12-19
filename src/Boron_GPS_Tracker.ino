@@ -101,7 +101,7 @@ void loop() {
         delay(5000);
     }
     
-    if((last_temp_c != temp_c) | (last_humidity != humidity) | (last_latitude != latitude) | (last_longitude != longitude))
+    if((last_temp_c != temp_c) | (last_humidity != humidity) | (last_latitude != (int)latitude) | (last_longitude != (int)longitude))
     {
         createEventPayload(temp_c, temp_f, humidity, voltage, percent_charge, signal_strength , signal_quality, longitude, latitude, altitude);
         last_temp_c = temp_c;
