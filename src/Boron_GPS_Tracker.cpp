@@ -17,17 +17,21 @@
  * 
  * Libraries:   AdafruitBME280; for Grove temp/humidity sensor
  *              TinyGPS++; Port of TinyGPS for the Particle AssetTracker; https://github.com/mikalhart/TinyGPSPlus
+ *              JsonParserGeneratorRK; parses JSON for events
+ *              Ubidots; sends data to Ubidots.com
  */
 
 #include "TinyGPS++.h"
 #include "Adafruit_BME280.h"
 #include "JsonParserGeneratorRK.h"
+#include "Ubidots.h"
 
 void setup();
 void loop();
 void getGPS();
 void createEventPayload(int temp_c, int temp_f, int humidity, int voltage, int percent_charge, int signal_strength , int signal_quality, double longitude, double latitude, double altitude);
-#line 20 "/Users/mikesoniat/Documents/Particle/Boron_GPS_Tracker/src/Boron_GPS_Tracker.ino"
+void getLocation();
+#line 23 "/Users/mikesoniat/Documents/Particle/Boron_GPS_Tracker/src/Boron_GPS_Tracker.ino"
 SerialLogHandler logHandler;
 
 TinyGPSPlus gps;
@@ -62,9 +66,14 @@ bool first_loop = true;
 unsigned long delay_millis = 300000;
 unsigned long lastCheck = 0;
 
+//Ubidots vars
+const char *WEBHOOK_NAME = "Ubidots";
+char webhook[] = "webhook";
+Ubidots ubidots(webhook, UBI_PARTICLE);
+
 // product/version
 PRODUCT_ID(16112)
-PRODUCT_VERSION(2)
+PRODUCT_VERSION(4)
 
 void setup() {
     //setup serial port
@@ -111,7 +120,7 @@ void loop() {
         first_loop = false;
         delay(5000);
 
-        if((last_temp_c != temp_c) | (last_humidity != humidity) | (last_latitude != (int)latitude) | (last_longitude != (int)longitude))
+        if((last_temp_c != temp_c) | (last_humidity != humidity) | (last_latitude != latitude) | (last_longitude != longitude))
         {
             createEventPayload(temp_c, temp_f, humidity, voltage, percent_charge, signal_strength , signal_quality, longitude, latitude, altitude);
             last_temp_c = temp_c;
@@ -164,5 +173,58 @@ void createEventPayload(int temp_c, int temp_f, int humidity, int voltage, int p
 
   Particle.publish("equipment_readings", jw.getBuffer(), PRIVATE);
 
+  //add Ubidots variables
+  getLocation();
+
+}
+
+void getLocation() {
+
+    /* Reserves 10 bytes of memory to store context keys values, add as much as needed */
+    char *str_lat = (char *)malloc(sizeof(char) * 10);
+    char *str_lng = (char *)malloc(sizeof(char) * 10);
+
+    /* Saves the coordinates as char*/
+    sprintf(str_lat, "%f", latitude);
+    sprintf(str_lng, "%f", longitude);
+
+    /* Reserves memory to store context array */
+    char *context = (char *)malloc(sizeof(char) * 50);
+
+    /* Adds context key-value pairs */
+    char latLabel[] = "lat";
+    char lngLabel[] = "lng";
+    ubidots.addContext(latLabel, str_lat);
+    ubidots.addContext(lngLabel, str_lng);
+
+    /* Builds the context with the coordinates to send to Ubidots */
+    ubidots.getContext(context);
+
+    /* Sends the position */
+    char positionLabel[] = "position";
+    ubidots.add(positionLabel, 0, context); // Change for your variable name
+
+    //other vars
+    char tempLabel[] = "Temperature in Fahrenheit";
+    char humidityLabel[] = "Humidity";
+    char batteryLabel[] = "Battery";
+
+    ubidots.add(tempLabel, temp_f);
+    ubidots.add(humidityLabel, humidity);
+    ubidots.add(batteryLabel, percent_charge);
+
+    bool bufferSent = false;
+    bufferSent = ubidots.send(WEBHOOK_NAME, PUBLIC); // Will use particle webhooks to send data
+
+    if (bufferSent)
+    {
+        // Do something if values were sent properly
+        Serial.println("Values sent by the device");
+    }
+
+    /* frees memory */
+    free(str_lat);
+    free(str_lng);
+    free(context);
 }
 
