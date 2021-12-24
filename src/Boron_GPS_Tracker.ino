@@ -11,16 +11,19 @@
  * 
  * Libraries:   AdafruitBME280; for Grove temp/humidity sensor
  *              TinyGPS++; Port of TinyGPS for the Particle AssetTracker; https://github.com/mikalhart/TinyGPSPlus
- *              JsonParserGeneratorRK; parses JSON for events
  *              Ubidots; sends data to Ubidots.com
  */
 
 #include "TinyGPS++.h"
 #include "Adafruit_BME280.h"
-#include "JsonParserGeneratorRK.h"
 #include "Ubidots.h"
 
+SYSTEM_THREAD(ENABLED);
 SerialLogHandler logHandler;
+
+//forward declarations
+void getInfo();
+void pushUbidots();
 
 TinyGPSPlus gps;
 Adafruit_BME280 bme;
@@ -49,15 +52,21 @@ int last_voltage = 1;
 int last_longitude = 1;
 int last_latitude = 1;
 
-//loop vars
-bool first_loop = true;
-unsigned long delay_millis = 300000;
-unsigned long lastCheck = 0;
-
 //Ubidots vars
 const char *WEBHOOK_NAME = "Ubidots";
 char webhook[] = "webhook";
 Ubidots ubidots(webhook, UBI_PARTICLE);
+
+void displayInfo(); // forward declaration
+
+//gps loop vars
+const unsigned long PUBLISH_PERIOD = 15000;
+const unsigned long SERIAL_PERIOD = 10000;
+const unsigned long MAX_GPS_AGE_MS = 10000;
+unsigned long lastSerial = 0;
+unsigned long lastPublish = 0;
+unsigned long startFix = 0;
+bool gettingFix = false;
 
 // product/version
 PRODUCT_ID(16112)
@@ -80,101 +89,34 @@ void setup() {
     Particle.variable("signal_quality", signal_quality);
     Particle.variable("percent_charge", percent_charge);    
     Particle.variable("longitude", &longitude, DOUBLE);
-    Particle.variable("latitude", &latitude, DOUBLE);
-    Particle.variable("altitude", &altitude, DOUBLE);
+    Particle.variable("latitude", latitude);
+
+    //from test project
+    startFix = millis();
+    gettingFix = true;
 
 }
 
-void loop() {
-    unsigned long currentMillis = millis();
+void loop()
+{
 
-    if((currentMillis - lastCheck > delay_millis) | first_loop) //after first loop, wait delay_millis to check again
-    {
-        lastCheck = currentMillis;
-        
-        temp_c = (int8_t)bme.readTemperature();
-        temp_f = (temp_c * 1.8) + 32;
-        humidity = (uint8_t)bme.readHumidity();
-        voltage = (uint8_t)fuel.getVCell();
-        percent_charge = (uint8_t)System.batteryCharge();
-
-        CellularSignal sig = Cellular.RSSI();
-        signal_strength  = (uint8_t)sig.getStrength();
-        signal_quality = (uint8_t)sig.getQuality();
-
-        // get GPS coordinates
-        getGPS();
-
-        first_loop = false;
-        delay(5000);
-
-        if((last_temp_c != temp_c) | (last_humidity != humidity) | (last_latitude != latitude) | (last_longitude != longitude))
-        {
-            createEventPayload(temp_c, temp_f, humidity, voltage, percent_charge, signal_strength , signal_quality, longitude, latitude, altitude);
-            last_temp_c = temp_c;
-            last_humidity = humidity;
-            last_latitude = latitude;
-            last_longitude = longitude;
+    while (Serial1.available() > 0) {
+        if (gps.encode(Serial1.read())) {
+            displayInfo();
         }
     }
-    
-}
-
-void getGPS() {
-    while(Serial1.available())
-    {
-        if(gps.encode(Serial1.read()))
-        {
-            String msg = Serial1.readStringUntil('\r');
-            Serial.println(msg);
-
-            if (gps.sentencesWithFix() > 0) {
-                latitude = gps.location.lat();
-                longitude = gps.location.lng();
-                altitude = gps.altitude.feet();
-            }
-
-        }
-    }  
 
 }
 
-void createEventPayload(int temp_c, int temp_f, int humidity, int voltage, int percent_charge, int signal_strength , int signal_quality, double longitude, double latitude, double altitude)
-{
-  JsonWriterStatic<256> jw;
-
-  {
-    JsonWriterAutoObject obj(&jw);
-
-    jw.insertKeyValue("temp_c", temp_c);
-    jw.insertKeyValue("temp_f", temp_f);
-    jw.insertKeyValue("humidity", humidity);
-    jw.insertKeyValue("voltage", voltage);
-    jw.insertKeyValue("percent_charge", percent_charge);
-    jw.insertKeyValue("signal_strength", signal_strength );
-    jw.insertKeyValue("signal_quality", signal_quality);
-    jw.insertKeyValue("longitude", longitude);
-    jw.insertKeyValue("latitude", latitude);
-    jw.insertKeyValue("altitude", altitude);
-
-  }
-
-  Particle.publish("equipment_readings", jw.getBuffer(), PRIVATE);
-
-  //add Ubidots variables
-  getLocation();
-
-}
-
-void getLocation() {
+void pushUbidots() {
 
     /* Reserves 10 bytes of memory to store context keys values, add as much as needed */
     char *str_lat = (char *)malloc(sizeof(char) * 10);
     char *str_lng = (char *)malloc(sizeof(char) * 10);
 
     /* Saves the coordinates as char*/
-    sprintf(str_lat, "%f", latitude);
-    sprintf(str_lng, "%f", longitude);
+    sprintf(str_lat, "%f", gps.location.lat());
+    sprintf(str_lng, "%f", gps.location.lng());
 
     /* Reserves memory to store context array */
     char *context = (char *)malloc(sizeof(char) * 50);
@@ -193,7 +135,7 @@ void getLocation() {
     ubidots.add(positionLabel, 0, context); // Change for your variable name
 
     //other vars
-    char tempLabel[] = "Temperature in Fahrenheit";
+    char tempLabel[] = "Temperature";
     char humidityLabel[] = "Humidity";
     char batteryLabel[] = "Battery";
 
@@ -216,3 +158,58 @@ void getLocation() {
     free(context);
 }
 
+void displayInfo()
+{
+    if (millis() - lastSerial >= SERIAL_PERIOD) {
+        lastSerial = millis();
+
+        //get other vars
+        temp_c = (int8_t)bme.readTemperature();
+        temp_f = (temp_c * 1.8) + 32;
+        humidity = (uint8_t)bme.readHumidity();
+        voltage = (uint8_t)fuel.getVCell();
+        percent_charge = (uint8_t)System.batteryCharge();
+
+        CellularSignal sig = Cellular.RSSI();
+        signal_strength  = (uint8_t)sig.getStrength();
+        signal_quality = (uint8_t)sig.getQuality();        
+
+        char buf[128];
+        char pubbuf[240];
+        if (gps.location.isValid() && gps.location.age() < MAX_GPS_AGE_MS) {
+
+            snprintf(buf, sizeof(buf), "%f", gps.location.lat());
+            snprintf(buf, sizeof(buf), "%f", gps.location.lng());
+
+            latitude = gps.location.lat();
+            longitude = gps.location.lng();
+
+            snprintf(buf, sizeof(buf), "%f,%f,%f", gps.location.lat(), gps.location.lng(), gps.altitude.meters());
+            snprintf(pubbuf, sizeof(pubbuf), "{\"temp_f\":\"%d\",\"humidity\":\"%d\",\"percent_charge\":\"%d\",\"signal_strength\":\"%d\",\"signal_quality\":\"%d\",\"position\": {\"value\":1, \"context\":{\"lat\": \"%f\", \"lng\": \"%f\"}}}", temp_f, humidity, percent_charge, signal_strength, signal_quality, gps.location.lat(), gps.location.lng());
+            
+            Serial.println(pubbuf);
+            
+            if (gettingFix) {
+                gettingFix = false;
+                unsigned long elapsed = millis() - startFix;
+                Serial.printlnf("%lu milliseconds to get GPS fix", elapsed);
+            }
+        }
+        else {
+            strcpy(buf, "no location");
+            if (!gettingFix) {
+                gettingFix = true;
+                startFix = millis();
+            }
+        }
+        Serial.println(buf);
+
+        if (Particle.connected()) {
+            if (millis() - lastPublish >= PUBLISH_PERIOD) {
+                lastPublish = millis();
+                Particle.publish("gps", pubbuf, PRIVATE);
+            }
+        }
+    }
+
+}
