@@ -57,10 +57,12 @@ const char *WEBHOOK_NAME = "Ubidots";
 char webhook[] = "webhook";
 Ubidots ubidots(webhook, UBI_PARTICLE);
 
-void displayInfo(); // forward declaration
+//forward declarations
+void displayInfo(); 
+void pushUbidots();
 
 //gps loop vars
-const unsigned long PUBLISH_PERIOD = 15000;
+const unsigned long PUBLISH_PERIOD = 30000;
 const unsigned long SERIAL_PERIOD = 10000;
 const unsigned long MAX_GPS_AGE_MS = 10000;
 unsigned long lastSerial = 0;
@@ -70,7 +72,7 @@ bool gettingFix = false;
 
 // product/version
 PRODUCT_ID(16112)
-PRODUCT_VERSION(4)
+PRODUCT_VERSION(5)
 
 void setup() {
     //setup serial port
@@ -106,56 +108,6 @@ void loop()
         }
     }
 
-}
-
-void pushUbidots() {
-
-    /* Reserves 10 bytes of memory to store context keys values, add as much as needed */
-    char *str_lat = (char *)malloc(sizeof(char) * 10);
-    char *str_lng = (char *)malloc(sizeof(char) * 10);
-
-    /* Saves the coordinates as char*/
-    sprintf(str_lat, "%f", gps.location.lat());
-    sprintf(str_lng, "%f", gps.location.lng());
-
-    /* Reserves memory to store context array */
-    char *context = (char *)malloc(sizeof(char) * 50);
-
-    /* Adds context key-value pairs */
-    char latLabel[] = "lat";
-    char lngLabel[] = "lng";
-    ubidots.addContext(latLabel, str_lat);
-    ubidots.addContext(lngLabel, str_lng);
-
-    /* Builds the context with the coordinates to send to Ubidots */
-    ubidots.getContext(context);
-
-    /* Sends the position */
-    char positionLabel[] = "position";
-    ubidots.add(positionLabel, 0, context); // Change for your variable name
-
-    //other vars
-    char tempLabel[] = "Temperature";
-    char humidityLabel[] = "Humidity";
-    char batteryLabel[] = "Battery";
-
-    ubidots.add(tempLabel, temp_f);
-    ubidots.add(humidityLabel, humidity);
-    ubidots.add(batteryLabel, percent_charge);
-
-    bool bufferSent = false;
-    bufferSent = ubidots.send(WEBHOOK_NAME, PUBLIC); // Will use particle webhooks to send data
-
-    if (bufferSent)
-    {
-        // Do something if values were sent properly
-        Serial.println("Values sent by the device");
-    }
-
-    /* frees memory */
-    free(str_lat);
-    free(str_lng);
-    free(context);
 }
 
 void displayInfo()
@@ -197,6 +149,7 @@ void displayInfo()
         }
         else {
             strcpy(buf, "no location");
+            snprintf(pubbuf, sizeof(pubbuf), "{\"temp_f\":\"%d\",\"humidity\":\"%d\",\"percent_charge\":\"%d\",\"signal_strength\":\"%d\",\"signal_quality\":\"%d\",\"position\": {\"value\":1, \"context\":{\"lat\": \"%f\", \"lng\": \"%f\"}}}", temp_f, humidity, percent_charge, signal_strength, signal_quality, gps.location.lat(), gps.location.lng());
             if (!gettingFix) {
                 gettingFix = true;
                 startFix = millis();
@@ -208,8 +161,59 @@ void displayInfo()
             if (millis() - lastPublish >= PUBLISH_PERIOD) {
                 lastPublish = millis();
                 Particle.publish("gps", pubbuf, PRIVATE);
+                void pushUbidots();
             }
         }
     }
 
+}
+
+void pushUbidots() {
+
+    /* Reserves 10 bytes of memory to store context keys values, add as much as needed */
+    char *str_lat = (char *)malloc(sizeof(char) * 10);
+    char *str_lng = (char *)malloc(sizeof(char) * 10);
+
+    /* Saves the coordinates as char*/
+    sprintf(str_lat, "%f", gps.location.lat());
+    sprintf(str_lng, "%f", gps.location.lng());
+
+    /* Reserves memory to store context array */
+    char *context = (char *)malloc(sizeof(char) * 50);
+
+    /* Adds context key-value pairs */
+    char latLabel[] = "lat";
+    char lngLabel[] = "lng";
+    ubidots.addContext(latLabel, str_lat);
+    ubidots.addContext(lngLabel, str_lng);
+
+    /* Builds the context with the coordinates to send to Ubidots */
+    ubidots.getContext(context);
+
+    /* Sends the position */
+    char positionLabel[] = "location";
+    ubidots.add(positionLabel, 0, context); // Change for your variable name
+
+    //other vars
+    char tempLabel[] = "Temperature";
+    char humidityLabel[] = "Humidity";
+    char batteryLabel[] = "Battery";
+
+    ubidots.add(tempLabel, temp_f);
+    ubidots.add(humidityLabel, humidity);
+    ubidots.add(batteryLabel, percent_charge);
+
+    bool bufferSent = false;
+    bufferSent = ubidots.send(WEBHOOK_NAME, PUBLIC); // Will use particle webhooks to send data
+
+    if (bufferSent)
+    {
+        // Do something if values were sent properly
+        Serial.println("Values sent by the device");
+    }
+
+    /* frees memory */
+    free(str_lat);
+    free(str_lng);
+    free(context);
 }
