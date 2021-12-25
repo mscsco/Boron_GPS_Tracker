@@ -1109,7 +1109,7 @@ struct __ApplicationProductVersion {
    b4744:	f005 fe4c 	bl	ba3e0 <spark_protocol_instance>
    b4748:	4623      	mov	r3, r4
    b474a:	4622      	mov	r2, r4
-   b474c:	2105      	movs	r1, #5
+   b474c:	2106      	movs	r1, #6
    b474e:	b00d      	add	sp, #52	; 0x34
    b4750:	e8bd 40f0 	ldmia.w	sp!, {r4, r5, r6, r7, lr}
    b4754:	f005 be54 	b.w	ba400 <spark_protocol_set_product_firmware_version>

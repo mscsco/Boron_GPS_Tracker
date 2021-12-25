@@ -81,7 +81,7 @@ bool gettingFix = false;
 
 // product/version
 PRODUCT_ID(16112)
-PRODUCT_VERSION(5)
+PRODUCT_VERSION(6)
 
 void setup() {
     //setup serial port
