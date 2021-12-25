@@ -72,7 +72,7 @@ bool gettingFix = false;
 
 // product/version
 PRODUCT_ID(16112)
-PRODUCT_VERSION(6)
+PRODUCT_VERSION(7)
 
 void setup() {
     //setup serial port
@@ -161,7 +161,7 @@ void displayInfo()
             if (millis() - lastPublish >= PUBLISH_PERIOD) {
                 lastPublish = millis();
                 Particle.publish("gps", pubbuf, PRIVATE);
-                void pushUbidots();
+                pushUbidots();
             }
         }
     }
